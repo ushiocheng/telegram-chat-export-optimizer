@@ -120,6 +120,10 @@ const mainFunction = async () => {
     // Iterate though files to find duplicates
     let uniqueStickers = new Map<string, UniqueStickerInterface>();
     fileInfo.forEach((file) => {
+        if (
+            fsSync.lstatSync(`${dir}/${file.fileRelativePath}`).isSymbolicLink()
+        )
+            return; // Skip symbolic link since there is no point to link them again
         let duplicate = uniqueStickers.get(file.fileHash);
         if (duplicate === undefined) {
             uniqueStickers.set(file.fileHash, {
