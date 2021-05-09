@@ -1,6 +1,7 @@
 import fs from "fs/promises";
 import fsSync from "fs";
 import crypto from "crypto";
+import { Console } from "console";
 
 // ========================================
 // OS Detection
@@ -102,6 +103,7 @@ const mainFunction = async () => {
         console.log("[FATAL] directory specified cannot be accessed.");
         process.exit(2);
     }
+    console.log("[INFO] Generating hashes for files.");
     let fileInfo = await Promise.all(
         files.map(async (file) => {
             return {
@@ -118,6 +120,7 @@ const mainFunction = async () => {
     // ========================================
     // Iterate though files to find duplicates
     let uniqueStickers = new Map<string, UniqueStickerInterface>();
+    let duplicateCount = 0;
     fileInfo.forEach((file) => {
         if (
             fsSync.lstatSync(`${dir}/${file.fileRelativePath}`).isSymbolicLink()
@@ -132,8 +135,12 @@ const mainFunction = async () => {
             return;
         }
         (duplicate.duplicates as Array<string>).push(file.fileRelativePath);
+        duplicateCount++;
         uniqueStickers.set(file.fileHash, duplicate);
     });
+    console.log(
+        `[INFO] ${files.length} files scanned, ${duplicateCount} duplicates found.`
+    );
 
     // ========================================
     // For each duplicated sticker, create symlink to one instance of it and delete the other duplicated file
