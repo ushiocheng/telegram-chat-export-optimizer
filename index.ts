@@ -1,4 +1,5 @@
 import fs from "fs/promises";
+import fsSync from "fs";
 import crypto from "crypto";
 
 const getFileHash = async (filepath: string) => {
@@ -8,7 +9,108 @@ const getFileHash = async (filepath: string) => {
     return hashResult.digest("hex") as string;
 };
 
-(async () => {
-    console.log(`f1: ${await getFileHash("./f1.webp")}`);
-    console.log(`f2: ${await getFileHash("./f2.webp")}`);
-})();
+/**
+ * atomically remove duplicate and create symlink to source file
+ * @param srcPath path to source file
+ * @param duplicatePath path to duplicated file, would be deleted then a symjlink with same name would be created to poiunt to srcPath
+ */
+const atomicRemoveAndSymlink = (srcPath: string, duplicatePath: string) => {
+    const tempFileDir = `${duplicatePath}.tmp-file-by-node-script`;
+    try {
+        fsSync.renameSync(duplicatePath, tempFileDir);
+    } catch (err) {
+        console.log("[ERROR] an error occurred when rename file.");
+        console.log(err);
+        throw new Error("Execution aborted intentionally.");
+        // Abort execution to avoid same error from happening hundreds of times.
+    }
+    try {
+        fsSync.symlinkSync(srcPath, duplicatePath);
+    } catch (err) {
+        console.log("[ERROR] an error occurred when try to create symlink.");
+        console.log("[INFO] try to automatically revert changes...");
+        try {
+            fsSync.renameSync(tempFileDir, duplicatePath);
+        } catch (err) {
+            console.log(
+                "[ERROR] an error occurred when try to automatically revert changes."
+            );
+            console.log("[INFO] Exiting");
+            throw new Error("Execution aborted intentionally.");
+        }
+        console.log("[INFO] Reverted file change, exiting.");
+        throw new Error("Execution aborted intentionally.");
+        // Abort execution to avoid same error from happening hundreds of times.
+    }
+    try {
+        fsSync.unlinkSync(tempFileDir);
+    } catch (err) {
+        console.log(
+            "[WARN] an error occurred when try to delete tmp file, try again..."
+        );
+        console.log(err);
+        try {
+            fsSync.unlinkSync(tempFileDir);
+            console.log("[WARN] delete tmp file succeed on 2nd attempt.");
+        } catch {
+            console.log("[WARN] tmp file cannot be deleted. exiting.");
+            throw new Error("Execution aborted intentionally.");
+            // Abort execution to avoid same error from happening hundreds of times.
+        }
+    }
+};
+
+// const dir = process.argv?.[1] as string;
+const dir = "./test"; // Test directory
+
+interface UniqueStickerInterface {
+    fileRelativePath: string;
+    duplicates: Array<string>;
+}
+
+const mainFunction = async () => {
+    // ========================================
+    // List all file and hash them
+    const files = await fs.readdir(dir);
+    let fileInfo = await Promise.all(
+        files.map(async (file) => {
+            return {
+                fileRelativePath: file,
+                fileHash: await getFileHash(`${dir}/${file}`)
+            };
+        })
+    );
+    console.log(JSON.stringify(fileInfo));
+    if (fileInfo.length == 0) {
+        console.log("[WARN] No file found in specified dir, exiting.");
+        return;
+    }
+
+    // ========================================
+    // Iterate though files to find duplicates
+    let uniqueStickers = new Map<string, UniqueStickerInterface>();
+    fileInfo.forEach((file) => {
+        let duplicate = uniqueStickers.get(file.fileHash);
+        if (duplicate === undefined) {
+            uniqueStickers.set(file.fileHash, {
+                fileRelativePath: file.fileRelativePath,
+                duplicates: [] as Array<string>
+            });
+            return;
+        }
+        (duplicate.duplicates as Array<string>).push(file.fileRelativePath);
+        uniqueStickers.set(file.fileHash, duplicate);
+    });
+
+    // ========================================
+    // For each duplicated sticker, create symlink to one instance of it and delete the other duplicated file
+    uniqueStickers.forEach((uniqueSticker) => {
+        uniqueSticker.duplicates.forEach((duplicateFilePath) => {
+            atomicRemoveAndSymlink(
+                uniqueSticker.fileRelativePath,
+                `${dir}/${duplicateFilePath}`
+            );
+        });
+    });
+};
+mainFunction();
