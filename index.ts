@@ -16,7 +16,9 @@ switch (process.platform) {
     case "win32":
     default:
         console.log("[FATAL] OS Unknown or Not Supported.");
-        console.log("This script only works on POSIX compliant systems because it uses symlink.");
+        console.log(
+            "This script only works on POSIX compliant systems because it uses symlink."
+        );
         process.exit(1);
 }
 
@@ -78,8 +80,12 @@ const atomicRemoveAndSymlink = (srcPath: string, duplicatePath: string) => {
     }
 };
 
-// const dir = process.argv?.[1] as string;
-const dir = "./test"; // Test directory
+const dir = process.argv?.[2] as string;
+if (dir === "") {
+    console.log("[FATAL] directory specified is empty.");
+    process.exit(2);
+}
+// const dir = "./test"; // Test directory
 
 interface UniqueStickerInterface {
     fileRelativePath: string;
@@ -89,7 +95,13 @@ interface UniqueStickerInterface {
 const mainFunction = async () => {
     // ========================================
     // List all file and hash them
-    const files = await fs.readdir(dir);
+    let files;
+    try {
+        files = await fs.readdir(dir);
+    } catch (err) {
+        console.log("[FATAL] directory specified cannot be accessed.");
+        process.exit(2);
+    }
     let fileInfo = await Promise.all(
         files.map(async (file) => {
             return {

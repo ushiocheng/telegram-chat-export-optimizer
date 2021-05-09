@@ -10,7 +10,7 @@ This script only works on POSIX compliant systems (aka. everything except window
 
 ## Usage
 
-Since this is mainly for my self and used only occasionally, all config is just hard coded into the script and path to the stickers are read from `argv[1]`.
+Since this is mainly for my self and used only occasionally, all config is just hard coded into the script and path to the stickers are read from `argv[2]`.
 
 ```sh
 node index.js <Path to stickers>
