@@ -110,7 +110,6 @@ const mainFunction = async () => {
             };
         })
     );
-    console.log(JSON.stringify(fileInfo));
     if (fileInfo.length == 0) {
         console.log("[WARN] No file found in specified dir, exiting.");
         return;
