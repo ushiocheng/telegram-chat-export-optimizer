@@ -2,6 +2,24 @@ import fs from "fs/promises";
 import fsSync from "fs";
 import crypto from "crypto";
 
+// ========================================
+// OS Detection
+// Since this script only works on POSIX compliant systems
+switch (process.platform) {
+    case "aix":
+    case "darwin":
+    case "freebsd":
+    case "linux":
+    case "openbsd":
+    case "sunos":
+        break;
+    case "win32":
+    default:
+        console.log("[FATAL] OS Unknown or Not Supported.");
+        console.log("This script only works on POSIX compliant systems because it uses symlink.");
+        process.exit(1);
+}
+
 const getFileHash = async (filepath: string) => {
     const fileBuffer = await fs.readFile(filepath);
     const hashResult = crypto.createHash("sha256");
